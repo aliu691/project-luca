@@ -26,3 +26,13 @@ Thumbs.db
 # IDE-specific files
 .vscode/
 .idea/
+
+# WPPConnect session files
+tokens/
+chrome-data/
+session/
+*.json
+
+# Ignore Baileys session (if ever added)
+auth_info*
+auth/*
