@@ -3,7 +3,7 @@
 import fs from "fs";
 import path from "path";
 
-const dbPath = path.join(process.cwd(), "src/db/users.db.json");
+const dbPath = path.join(process.cwd(), "src/core/db/users.db.json");
 
 export function loadUsers() {
   const raw = fs.readFileSync(dbPath, "utf8");

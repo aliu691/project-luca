@@ -1,7 +1,7 @@
 import wppconnect from "@wppconnect-team/wppconnect";
-import { WHATSAPP_SESSION_DIR, IS_PROD, IS_DEV } from "../config/env.js";
-import { logger } from "../config/logger.js";
-import messageHandler from "../handlers/message.handler.js";
+import { WHATSAPP_SESSION_DIR, IS_PROD, IS_DEV } from "../core/config/env.js";
+import { logger } from "../core/config/logger.js";
+import messageHandler from "../features/whatsapp/message.handler.js";
 
 let client = null;
 

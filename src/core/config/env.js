@@ -11,3 +11,6 @@ export const WHATSAPP_SESSION_DIR =
   process.env.WHATSAPP_SESSION_DIR || "tokens";
 
 export const LOG_LEVEL = process.env.LOG_LEVEL || "info";
+
+export const OPENAI_API_BASE = process.env.OPENAI_API_BASE || "";
+export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
