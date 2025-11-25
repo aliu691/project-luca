@@ -4,46 +4,41 @@ import messageHandler from "../handlers/message.handler.js";
 
 let client = null;
 
-async function startWhatsapp() {
+export async function startWhatsapp() {
   try {
     client = await wppconnect.create({
       session: "luca-session",
 
-      // Render free tier will output QR in logs
-      catchQR: (qr) => console.log("SCAN THIS QR:", qr),
-
-      headless: true,
-
       folderNameToken: WHATSAPP_SESSION_DIR,
 
-      useChrome: true,
-      executablePath: "/usr/bin/google-chrome",
-
-      browserArgs: [
-        "--disable-gpu",
-        "--no-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-setuid-sandbox",
-        "--no-zygote",
-        "--single-process",
-      ],
-
-      puppeteerOptions: {
-        ignoreDefaultArgs: ["--disable-extensions"],
+      catchQR: (qrCode) => {
+        console.log("\n\n📌 QR CODE RECEIVED (Scan this):\n");
+        console.log(qrCode);
       },
 
-      debug: false,
+      headless: false, // IMPORTANT: keep visible
+      autoClose: false,
+
+      useChrome: true,
+      executablePath:
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+
+      browserArgs: ["--no-sandbox"],
     });
 
     console.log("🟢 WhatsApp connected!");
 
     client.onMessage((msg) => {
-      console.log("📩 Received:", msg.body);
+      console.log("📨 Incoming:", msg.from, "→", msg.body);
       messageHandler(client, msg);
     });
-  } catch (err) {
-    console.error("❌ WhatsApp init error:", err);
+
+    return client;
+  } catch (error) {
+    console.error("❌ WhatsApp init error:", error);
   }
 }
 
-export { startWhatsapp, client };
+export function getClient() {
+  return client;
+}
