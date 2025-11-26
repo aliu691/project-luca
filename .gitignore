@@ -36,3 +36,5 @@ session/
 # Ignore Baileys session (if ever added)
 auth_info*
 auth/*
+
+/src/generated/prisma
