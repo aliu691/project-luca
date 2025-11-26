@@ -63,3 +63,28 @@ export function formatDateDDMMYYYY(date) {
   const year = d.getFullYear();
   return `${day}-${month}-${year}`;
 }
+
+export function cleanAmount(input) {
+  if (!input) return null;
+
+  return Number(
+    input
+      .toString()
+      .replace(/[₦,\s]/g, "")
+      .replace(/[^\d.-]/g, "")
+  );
+}
+
+// normalizeAmount(str) -> number | null
+export function normalizeAmount(raw) {
+  if (!raw && raw !== 0) return null;
+  // raw can be like "NGN-100,250.00" or "3,300.00" or "DR Amt:3,300.00" or "CR Amt:300,000.00"
+  const s = String(raw)
+    .replace(/(NGN|USD|UGX|₦|\$|,|CR|DR|Amt|:|-)/gi, "") // remove currency/labels/commas/dashes
+    .trim();
+
+  // sometimes parser gives "100.00" or "100000.00"
+  const n = parseFloat(s);
+  if (Number.isFinite(n)) return Math.round(n); // store integer (smallest unit optional)
+  return null;
+}
