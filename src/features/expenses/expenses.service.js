@@ -1,108 +1,130 @@
 import { extractExpenseWithAI } from "../../services/ai.service.js";
-import { quickExtract } from "./expenses.util.js";
-
-// export async function handleExpenseMessage(client, msg, user, text) {
-//   const looksLikeExpense =
-//     text.match(/\d/) && /(\bNGN\b|₦|\bUSD\b|\$|paid|spent|to|at)/i;
-
-//   const isCommand =
-//     text.toLowerCase().startsWith("/expense") ||
-//     text.toLowerCase().startsWith("expense:");
-
-//   if (!looksLikeExpense && !isCommand) return false; // handler didn't process
-
-//   const raw = text.replace(/^\/?expense[:\s]*/i, "").trim();
-
-//   let parsed;
-//   try {
-//     parsed = await extractExpenseWithAI(raw);
-//   } catch (err) {
-//     parsed = quickExtract(raw);
-//     parsed.notes = parsed.notes || "fallback parser";
-//   }
-
-//   const expense = {
-//     userPhone: user.phone,
-//     amount: parsed.amount,
-//     currency: parsed.currency || "NGN",
-//     merchant: parsed.merchant || null,
-//     category: parsed.category || "other",
-//     date: parsed.date || new Date().toISOString().slice(0, 10),
-//     notes: parsed.notes || "",
-//     raw_text: raw,
-//   };
-
-//   const saved = createExpense(expense);
-
-//   await client.sendText(
-//     msg.from,
-//     `✅ Expense recorded:
-// • Amount: ${expense.amount ?? "N/A"} ${expense.currency}
-// • Merchant: ${expense.merchant ?? "N/A"}
-// • Category: ${expense.category}
-// • Date: ${expense.date}`
-//   );
-
-//   console.log("💾 Expense saved:", saved);
-//   return true;
-// }
-
+import { quickExtract, formatDateDDMMYYYY } from "./expenses.util.js";
 import { prisma } from "../../core/db/prisma.js";
 
+import {
+  getTodayExpenses,
+  getYesterdayExpenses,
+  getThisWeekExpenses,
+  getThisMonthExpenses,
+} from "./expenses.query.js";
+
 /**
- * Detects & processes expense messages
+ * Handle all expense-like messages
  */
 export async function handleExpenseMessage(client, msg, user, text) {
+  const lower = text.toLowerCase().trim();
+
+  // --------------------------
+  // 1) QUERY COMMANDS
+  // --------------------------
+  if (lower === "today") {
+    const rows = await getTodayExpenses(user.id);
+    return sendSummary(client, msg.from, "Today", rows);
+  }
+
+  if (lower === "yesterday") {
+    const rows = await getYesterdayExpenses(user.id);
+    return sendSummary(client, msg.from, "Yesterday", rows);
+  }
+
+  if (lower === "this week" || lower === "week") {
+    const rows = await getThisWeekExpenses(user.id);
+    return sendSummary(client, msg.from, "This Week", rows);
+  }
+
+  if (lower === "this month" || lower === "month") {
+    const rows = await getThisMonthExpenses(user.id);
+    return sendSummary(client, msg.from, "This Month", rows);
+  }
+
+  // --------------------------
+  // 2) DETECT EXPENSE ENTRY
+  // --------------------------
   const looksLikeExpense =
-    text.match(/\d/) && /(\bNGN\b|₦|\bUSD\b|\$|paid|spent|to|at)/i;
+    text.match(/\d/) && /(\bNGN\b|₦|\bUSD\b|\$|paid|spent|to|at|₦|\b£|\b€)/i;
 
   const isCommand =
-    text.toLowerCase().startsWith("/expense") ||
-    text.toLowerCase().startsWith("expense:");
+    lower.startsWith("/expense") || lower.startsWith("expense:");
 
-  // Not an expense → let other handlers manage
-  if (!looksLikeExpense && !isCommand) return false;
+  if (!looksLikeExpense && !isCommand) return false; // Let other handlers process message
 
-  // Remove “/expense” prefix if present
+  // Strip "/expense" prefix if it exists
   const raw = text.replace(/^\/?expense[:\s]*/i, "").trim();
 
-  // --- 1) Extract values ---
+  // --------------------------
+  // 3) AI Extraction
+  // --------------------------
   let parsed;
   try {
     parsed = await extractExpenseWithAI(raw);
   } catch (err) {
+    console.warn("AI failed → using quick parser");
     parsed = quickExtract(raw);
     parsed.notes = parsed.notes || "fallback parser";
   }
 
-  // --- 2) Normalise payload ---
+  // --------------------------
+  // 4) Always use today's date
+  // --------------------------
+
+  const today = new Date().toISOString().slice(0, 10);
+
   const expenseData = {
     userId: user.id,
     amount: parsed.amount || null,
     currency: parsed.currency || (parsed.amount ? "NGN" : null),
     merchant: parsed.merchant || null,
     category: parsed.category || "other",
-    date: parsed.date ? new Date(parsed.date) : new Date(),
+
+    // Prisma requires full ISO DateTime
+    date: new Date(today + "T00:00:00.000Z"),
+
     notes: parsed.notes || "",
     rawText: raw,
   };
 
-  // --- 3) Save to DB ---
+  // --------------------------
+  // 5) Save to DB
+  // --------------------------
   const saved = await prisma.expense.create({
     data: expenseData,
   });
 
-  // --- 4) Send confirmation ---
+  // --------------------------
+  // 6) Confirm to user
+  // --------------------------
   await client.sendText(
     msg.from,
     `✅ Expense recorded:
 • Amount: ${expenseData.amount ?? "N/A"} ${expenseData.currency ?? ""}
 • Merchant: ${expenseData.merchant ?? "N/A"}
 • Category: ${expenseData.category}
-• Date: ${expenseData.date.toISOString().slice(0, 10)}`
+• Date: ${formatDateDDMMYYYY(expenseData.date)}`
   );
 
   console.log("💾 Expense saved:", saved);
 
+  return true;
+}
+
+/**
+ * Send a summary list of expenses
+ */
+async function sendSummary(client, to, label, rows) {
+  if (!rows.length) {
+    await client.sendText(to, `📭 No expenses recorded for *${label}*.`);
+    return true;
+  }
+
+  const total = rows.reduce((sum, e) => sum + (e.amount || 0), 0);
+
+  const list = rows
+    .map((e) => `• ₦${e.amount} — ${e.merchant || "Unknown"}`)
+    .join("\n");
+
+  const message = `📊 *${label} Expenses*\n\n${list}\n\n🧮 Total: ₦${total}`;
+
+  await client.sendText(to, message);
   return true;
 }
