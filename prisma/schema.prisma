@@ -16,17 +16,17 @@ model User {
 
 model Expense {
   id        Int       @id @default(autoincrement())
-
-  userId    Int
+  userId    Int       // MUST be required
   user      User      @relation(fields: [userId], references: [id])
 
-  amount    Int
-  currency  String
+  amount    Int?
+  currency  String?
   merchant  String?
-  category  String
+  category  String?
   date      DateTime
   notes     String?
-  rawText   String
+  rawText   String?
 
   createdAt DateTime  @default(now())
 }
+
