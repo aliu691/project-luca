@@ -17,13 +17,15 @@
   "license": "ISC",
   "dependencies": {
     "@adiwajshing/baileys": "^5.0.0",
+    "@prisma/client": "^6.19.0",
     "@wppconnect-team/wppconnect": "^1.37.6",
     "body-parser": "^2.2.0",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "pino": "^8.14.0",
-    "qrcode": "^1.5.1",
-    "puppeteer": "^23.4.0"
+    "prisma": "^6.19.0",
+    "puppeteer": "^23.4.0",
+    "qrcode": "^1.5.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"
