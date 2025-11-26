@@ -1,4 +1,5 @@
 // src/features/expenses/expense.orchestrator.js
+
 import { parseTypedExpense } from "./parsers/typedExpense.parser.js";
 import { parseBankAlert } from "./parsers/bankAlerts.parser.js";
 import { quickExtract } from "./expenses.util.js";
@@ -8,6 +9,9 @@ export class ExpenseOrchestrator {
   static async processMessage(client, msg, user) {
     const text = (msg.body || "").trim();
 
+    // -----------------------------------------------------
+    // 1. DETECT MESSAGE TYPE
+    // -----------------------------------------------------
     const isBankAlert = this.looksLikeBankAlert(text);
     const isTypedExpense = this.looksLikeTypedExpense(text);
 
@@ -15,77 +19,97 @@ export class ExpenseOrchestrator {
     let source = null;
 
     // -----------------------------------------------------
-    // 1. BANK ALERT FIRST — HIGHEST PRIORITY
+    // 2. HANDLE BANK ALERTS (HIGHEST PRIORITY)
     // -----------------------------------------------------
     if (isBankAlert) {
       parsed = await parseBankAlert(text);
 
-      // ❌ CREDIT ALERT: parsed === null
-      if (!parsed) {
+      // ❌ CREDIT ALERT (parseBankAlert returns null)
+      if (parsed === null) {
         await client.sendText(
           msg.from,
-          "⚠️ This appears to be a *credit alert*. Only debit alerts can be logged as expenses."
+          "⚠️ This appears to be a *credit alert*. Only debit alerts can be recorded as expenses."
         );
-        return true; // stop pipeline
+        return true;
+      }
+
+      // ❌ ALERT MISSING AMOUNT
+      if (parsed?.error === "NO_AMOUNT") {
+        await client.sendText(
+          msg.from,
+          "⚠️ I couldn't extract the *debit amount* from this alert.\nPlease resend the *full alert* exactly as received."
+        );
+        return true;
       }
 
       source = "bank-alert";
     }
 
     // -----------------------------------------------------
-    // 2. TYPED EXPENSE
+    // 3. HANDLE TYPED EXPENSES
     // -----------------------------------------------------
     else if (isTypedExpense) {
-      parsed = await parseTypedExpense(text);
-      source = "typed";
+      try {
+        parsed = await parseTypedExpense(text);
+        source = "typed";
+      } catch (err) {
+        parsed = null;
+      }
     }
 
     // -----------------------------------------------------
-    // 3. NOT AN EXPENSE → LET OTHER HANDLERS RUN
+    // 4. NOT AN EXPENSE → LET OTHER HANDLERS CONTINUE
     // -----------------------------------------------------
     else {
       return false;
     }
 
     // -----------------------------------------------------
-    // 4. If parsed failed for a typed expense → fallback
+    // 5. FALLBACK PARSER (AI or typed parser failed)
     // -----------------------------------------------------
-    if (!parsed && isTypedExpense) {
+    if (!parsed) {
       parsed = quickExtract(text);
       parsed.notes = parsed.notes || "fallback parser";
       source = "fallback";
     }
 
     // -----------------------------------------------------
-    // 5. Enforce today's date
+    // 6. BUSINESS RULE — ALL DATES = TODAY
     // -----------------------------------------------------
     parsed.date = new Date().toISOString().slice(0, 10);
 
     // -----------------------------------------------------
-    // 6. Save to DB
+    // 7. SAVE TO DATABASE
     // -----------------------------------------------------
     const saved = await createExpenseRecord(user.id, parsed, source);
 
+    // -----------------------------------------------------
+    // 8. MESSAGE BACK TO USER
+    // -----------------------------------------------------
     await client.sendText(
       msg.from,
       `✅ Expense recorded (${source}):
 • Amount: ${parsed.amount ?? "N/A"} ${parsed.currency ?? ""}
-• Merchant: ${parsed.merchant ?? "N/A"}
-• Category: ${parsed.category}
+• Merchant: ${parsed.merchant || "N/A"}
+• Category: ${parsed.category || "other"}
 • Date: ${parsed.date}`
     );
 
     return true;
   }
 
+  // -----------------------------------------------------
+  // DETECTION HELPERS
+  // -----------------------------------------------------
   static looksLikeBankAlert(text) {
+    // Covers: CR Amt, DR Amt, Debit!, Credit!, MC Loc POS, Acct:
     return /CR Amt|DR Amt|Debit!|Credit!|Acct:/i.test(text);
   }
 
   static looksLikeTypedExpense(text) {
     return (
       /\d/.test(text) &&
-      /(paid|spent|bought|for|at|to|₦|\$|ngn|usd)/i.test(text)
+      /(paid|spent|bought|for|at|to|₦|\$|ngn|usd|£|€)/i.test(text)
     );
   }
 }
