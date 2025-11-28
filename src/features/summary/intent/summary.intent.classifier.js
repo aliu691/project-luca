@@ -1,5 +1,3 @@
-// src/features/summary/intent/summary.intent.classifier.js
-
 import { callAI } from "../../../services/ai/ai.client.js";
 import { SUMMARY_INTENT_PROMPT } from "../../../prompts/summaryIntent.prompt.js";
 import { SUMMARY_INTENTS } from "./summary.intent.types.js";

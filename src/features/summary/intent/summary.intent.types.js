@@ -1,5 +1,3 @@
-// src/features/summary/intent/summary.intent.types.js
-
 export const SUMMARY_INTENTS = {
   TODAY: "today",
   YESTERDAY: "yesterday",

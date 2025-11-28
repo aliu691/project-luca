@@ -1,5 +1,3 @@
-// src/features/summary/processors/summary.category.js
-
 import { prisma } from "../../../core/db/prisma.js";
 
 export async function sendCategoryBreakdown(client, to, userId) {

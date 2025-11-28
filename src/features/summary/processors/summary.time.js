@@ -1,5 +1,3 @@
-// src/features/summary/processors/summary.time.js
-
 import {
   getTodayExpenses,
   getYesterdayExpenses,

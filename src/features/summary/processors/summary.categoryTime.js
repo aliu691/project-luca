@@ -1,5 +1,3 @@
-// src/features/summary/processors/summary.categoryTime.js
-
 import { prisma } from "../../../core/db/prisma.js";
 import {
   getTodayExpenses,
