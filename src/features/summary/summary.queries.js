@@ -1,77 +1,57 @@
-// src/features/summary/summary.queries.js
-
 import { prisma } from "../../core/db/prisma.js";
 import { startOfDay, startOfWeek, startOfMonth, subDays } from "date-fns";
 
-// ─────────────────────────────────────────────
-// TODAY
-// ─────────────────────────────────────────────
 export async function getTodayExpenses(userId) {
   const today = startOfDay(new Date());
   return prisma.expense.findMany({
     where: { userId, date: { gte: today } },
+    orderBy: { createdAt: "asc" },
   });
 }
 
-// ─────────────────────────────────────────────
-// YESTERDAY
-// ─────────────────────────────────────────────
 export async function getYesterdayExpenses(userId) {
   const yesterday = startOfDay(subDays(new Date(), 1));
   const today = startOfDay(new Date());
 
   return prisma.expense.findMany({
-    where: {
-      userId,
-      date: { gte: yesterday, lt: today },
-    },
+    where: { userId, date: { gte: yesterday, lt: today } },
+    orderBy: { createdAt: "asc" },
   });
 }
 
-// ─────────────────────────────────────────────
-// THIS WEEK
-// ─────────────────────────────────────────────
 export async function getThisWeekExpenses(userId) {
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
 
   return prisma.expense.findMany({
     where: { userId, date: { gte: weekStart } },
+    orderBy: { createdAt: "asc" },
   });
 }
 
-// ─────────────────────────────────────────────
-// THIS MONTH
-// ─────────────────────────────────────────────
 export async function getThisMonthExpenses(userId) {
   const monthStart = startOfMonth(new Date());
 
   return prisma.expense.findMany({
     where: { userId, date: { gte: monthStart } },
+    orderBy: { createdAt: "asc" },
   });
 }
 
-// ─────────────────────────────────────────────
-// LAST 5 TRANSACTIONS
-// ─────────────────────────────────────────────
 export async function getLast5Expenses(userId) {
   return prisma.expense.findMany({
     where: { userId },
+    orderBy: { createdAt: "desc" },
     take: 5,
   });
 }
 
-// ─────────────────────────────────────────────
-// CATEGORY FILTER
-// ─────────────────────────────────────────────
 export async function getExpensesByCategory(userId, category) {
   return prisma.expense.findMany({
     where: { userId, category },
+    orderBy: { createdAt: "asc" },
   });
 }
 
-// ─────────────────────────────────────────────
-// CUSTOM DATE RANGE
-// ─────────────────────────────────────────────
 export async function getExpensesByRange(userId, from, to) {
   return prisma.expense.findMany({
     where: {
@@ -81,5 +61,6 @@ export async function getExpensesByRange(userId, from, to) {
         lt: new Date(to + "T23:59:59.999Z"),
       },
     },
+    orderBy: { createdAt: "asc" },
   });
 }
