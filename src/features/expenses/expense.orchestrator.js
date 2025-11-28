@@ -6,25 +6,30 @@ import { quickExtract } from "./expenses.util.js";
 import { createExpenseRecord } from "./expenses.service.js";
 
 export class ExpenseOrchestrator {
+  static looksLikeBankAlert(text) {
+    return /CR Amt|DR Amt|Debit!|Credit!|Acct:/i.test(text);
+  }
+
+  static looksLikeTypedExpense(text) {
+    return (
+      /\d/.test(text) &&
+      /(paid|spent|bought|for|at|to|₦|\$|ngn|usd|£|€)/i.test(text)
+    );
+  }
+
   static async processMessage(client, msg, user) {
     const text = (msg.body || "").trim();
 
-    // -----------------------------------------------------
-    // 1. DETECT MESSAGE TYPE
-    // -----------------------------------------------------
-    const isBankAlert = this.looksLikeBankAlert(text);
-    const isTypedExpense = this.looksLikeTypedExpense(text);
+    const isBankAlert = ExpenseOrchestrator.looksLikeBankAlert(text);
+    const isTypedExpense = ExpenseOrchestrator.looksLikeTypedExpense(text);
 
     let parsed = null;
     let source = null;
 
-    // -----------------------------------------------------
-    // 2. HANDLE BANK ALERTS (HIGHEST PRIORITY)
-    // -----------------------------------------------------
+    // BANK ALERT
     if (isBankAlert) {
       parsed = await parseBankAlert(text);
 
-      // ❌ CREDIT ALERT (parseBankAlert returns null)
       if (parsed === null) {
         await client.sendText(
           msg.from,
@@ -33,11 +38,10 @@ export class ExpenseOrchestrator {
         return true;
       }
 
-      // ❌ ALERT MISSING AMOUNT
       if (parsed?.error === "NO_AMOUNT") {
         await client.sendText(
           msg.from,
-          "⚠️ I couldn't extract the *debit amount* from this alert.\nPlease resend the *full alert* exactly as received."
+          "⚠️ I couldn't extract the *debit amount* from this alert.\nPlease send the full alert exactly as received."
         );
         return true;
       }
@@ -45,9 +49,7 @@ export class ExpenseOrchestrator {
       source = "bank-alert";
     }
 
-    // -----------------------------------------------------
-    // 3. HANDLE TYPED EXPENSES
-    // -----------------------------------------------------
+    // TYPED EXPENSE
     else if (isTypedExpense) {
       try {
         parsed = await parseTypedExpense(text);
@@ -57,35 +59,23 @@ export class ExpenseOrchestrator {
       }
     }
 
-    // -----------------------------------------------------
-    // 4. NOT AN EXPENSE → LET OTHER HANDLERS CONTINUE
-    // -----------------------------------------------------
+    // NOT AN EXPENSE
     else {
       return false;
     }
 
-    // -----------------------------------------------------
-    // 5. FALLBACK PARSER (AI or typed parser failed)
-    // -----------------------------------------------------
+    // FALLBACK
     if (!parsed) {
       parsed = quickExtract(text);
       parsed.notes = parsed.notes || "fallback parser";
       source = "fallback";
     }
 
-    // -----------------------------------------------------
-    // 6. BUSINESS RULE — ALL DATES = TODAY
-    // -----------------------------------------------------
+    // FORCE TODAY
     parsed.date = new Date().toISOString().slice(0, 10);
 
-    // -----------------------------------------------------
-    // 7. SAVE TO DATABASE
-    // -----------------------------------------------------
     const saved = await createExpenseRecord(user.id, parsed, source);
 
-    // -----------------------------------------------------
-    // 8. MESSAGE BACK TO USER
-    // -----------------------------------------------------
     await client.sendText(
       msg.from,
       `✅ Expense recorded (${source}):
@@ -96,20 +86,5 @@ export class ExpenseOrchestrator {
     );
 
     return true;
-  }
-
-  // -----------------------------------------------------
-  // DETECTION HELPERS
-  // -----------------------------------------------------
-  static looksLikeBankAlert(text) {
-    // Covers: CR Amt, DR Amt, Debit!, Credit!, MC Loc POS, Acct:
-    return /CR Amt|DR Amt|Debit!|Credit!|Acct:/i.test(text);
-  }
-
-  static looksLikeTypedExpense(text) {
-    return (
-      /\d/.test(text) &&
-      /(paid|spent|bought|for|at|to|₦|\$|ngn|usd|£|€)/i.test(text)
-    );
   }
 }
