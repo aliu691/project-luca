@@ -16,7 +16,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@adiwajshing/baileys": "^5.0.0",
     "@prisma/client": "^6.19.0",
     "@wppconnect-team/wppconnect": "^1.37.6",
     "body-parser": "^2.2.0",
