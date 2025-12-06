@@ -1,5 +1,3 @@
-// src/services/ai/ai.client.js
-
 import fetch from "node-fetch";
 import { OPENAI_API_KEY } from "../../core/config/env.js";
 
